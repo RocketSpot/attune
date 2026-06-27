@@ -15,7 +15,7 @@ let tray = null;
 
 // --- App settings (persisted) -------------------------------------------------------
 const settingsPath = () => path.join(app.getPath('userData'), 'attune-settings.json');
-let settings = { closeToTray: true, githubRepo: '' };
+let settings = { closeToTray: true, githubRepo: 'RocketSpot/attune' };
 function loadSettings() {
   try { settings = { ...settings, ...JSON.parse(fs.readFileSync(settingsPath(), 'utf-8')) }; } catch (_) {}
 }
