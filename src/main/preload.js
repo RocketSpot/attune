@@ -16,10 +16,23 @@ contextBridge.exposeInMainWorld('cmf', {
   onMediaUpdate: (cb) => ipcRenderer.on('media:update', (_e, data) => cb(data)),
   onMediaError: (cb) => ipcRenderer.on('media:error', (_e, msg) => cb(msg)),
 
-  // Spotify connect (optional enrichment)
+  // music providers (genre/art enrichment)
+  providersGet: () => ipcRenderer.invoke('providers:get'),
+  providersSet: (patch) => ipcRenderer.invoke('providers:set', patch),
+  lastfmSetKey: (key) => ipcRenderer.invoke('lastfm:setKey', key),
+
+  // Spotify connect
   spotifyStatus: () => ipcRenderer.invoke('spotify:status'),
   spotifySetClientId: (id) => ipcRenderer.invoke('spotify:setClientId', id),
   spotifyConnect: () => ipcRenderer.invoke('spotify:connect'),
   spotifyDisconnect: () => ipcRenderer.invoke('spotify:disconnect'),
-  onSpotifyStatus: (cb) => ipcRenderer.on('spotify:status', (_e, data) => cb(data))
+  onSpotifyStatus: (cb) => ipcRenderer.on('spotify:status', (_e, data) => cb(data)),
+
+  // app settings (close-to-tray, github repo)
+  settingsGet: () => ipcRenderer.invoke('settings:get'),
+  settingsSet: (patch) => ipcRenderer.invoke('settings:set', patch),
+
+  // feedback
+  feedbackSave: (entry) => ipcRenderer.invoke('feedback:save', entry),
+  feedbackOpen: () => ipcRenderer.invoke('feedback:open')
 });

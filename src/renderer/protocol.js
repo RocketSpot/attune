@@ -20,6 +20,7 @@ const FASTPAIR_UUID = 'df21fe2c-2515-4fdb-8886-f12c4d67927c';
 
 var SPPsocket = null;
 var sessionReader = null; // active read-loop reader, so disconnect() can cancel it
+var batteryTimer = null;  // periodic battery poll (keeps case % current)
 var modelBase = '';
 var firmwareVersion = '';
 
@@ -268,6 +269,11 @@ async function startSession(port) {
   onSessionStart();
   initDevice();
 
+  // Poll battery so left/right AND the case stay current — the case only reports
+  // while the buds are docked, so a one-time read at connect often misses it.
+  if (batteryTimer) { clearInterval(batteryTimer); batteryTimer = null; }
+  batteryTimer = setInterval(() => { try { sendBattery(); } catch (_) {} }, 30000);
+
   try {
     while (port.readable) {
       const { value, done } = await reader.read();
@@ -283,6 +289,7 @@ async function startSession(port) {
     /* device disconnected */
   }
   try { reader.releaseLock(); } catch (_) {}
+  if (batteryTimer) { clearInterval(batteryTimer); batteryTimer = null; }
   sessionReader = null;
   SPPsocket = null;
   onSessionEnd();

@@ -31,6 +31,12 @@ const SPOTIFY_PORT = 8888;
 const SPOTIFY_REDIRECT = `http://127.0.0.1:${SPOTIFY_PORT}/callback`;
 const SPOTIFY_SCOPE = 'user-read-currently-playing user-read-playback-state';
 let spotify = { clientId: '', tokens: null }; // tokens: { access, refresh, expires }
+
+// Genre/album-art enrichment providers. System Media always detects the track;
+// these fill in genre + cover art. Tried in order; first non-empty value wins.
+let providers = { apple: true, deezer: true, lastfm: false };
+let lastfmKey = '';
+
 let oauthServer = null;
 let oauthVerifier = '';
 let oauthState = '';
@@ -60,11 +66,15 @@ function loadConfig() {
     const c = JSON.parse(fs.readFileSync(cfgPath(), 'utf-8'));
     spotify.clientId = c.spotifyClientId || '';
     spotify.tokens = c.spotifyTokens || null;
+    if (c.providers) providers = { ...providers, ...c.providers };
+    lastfmKey = c.lastfmKey || '';
   } catch (_) { /* first run */ }
 }
 function saveConfig() {
   try {
-    fs.writeFileSync(cfgPath(), JSON.stringify({ spotifyClientId: spotify.clientId, spotifyTokens: spotify.tokens }, null, 2));
+    fs.writeFileSync(cfgPath(), JSON.stringify({
+      spotifyClientId: spotify.clientId, spotifyTokens: spotify.tokens, providers, lastfmKey
+    }, null, 2));
   } catch (_) {}
 }
 
@@ -178,13 +188,18 @@ async function resolveMeta(artist, title) {
   let genre = null;
   let artUrl = null;
 
-  if (spotify.tokens) {
-    try { const r = await spotifyLookup(artist, title); if (r) { genre = r.genre; artUrl = r.art; } } catch (_) {}
-  }
-  if (!genre || !artUrl) {
+  // Provider chain (first non-empty value wins per field).
+  const chain = [];
+  if (spotify.tokens) chain.push(spotifyLookup);
+  if (providers.lastfm && lastfmKey) chain.push(lastfmLookup);
+  if (providers.apple) chain.push(itunesLookup);
+  if (providers.deezer) chain.push(deezerLookup);
+
+  for (const lookup of chain) {
+    if (genre && artUrl) break;
     try {
-      const r = await itunesLookup(artist, title);
-      if (r) { if (!genre) genre = r.genre; if (!artUrl) artUrl = r.art; }
+      const r = await lookup(artist, title);
+      if (r) { if (!genre) genre = r.genre || null; if (!artUrl) artUrl = r.art || null; }
     } catch (_) {}
   }
 
@@ -194,6 +209,37 @@ async function resolveMeta(artist, title) {
   const meta = { genre, art };
   metaCache.set(key, meta);
   return meta;
+}
+
+async function deezerLookup(artist, title) {
+  const q = encodeURIComponent(`artist:"${artist}" track:"${title}"`);
+  const res = await fetchJson(`https://api.deezer.com/search?q=${q}&limit=1`, {}, 6000);
+  const t = res && res.data && res.data[0];
+  if (!t) return null;
+  let art = (t.album && (t.album.cover_big || t.album.cover_medium || t.album.cover_xl)) || null;
+  let genre = null;
+  if (t.album && t.album.id) {
+    const alb = await fetchJson('https://api.deezer.com/album/' + t.album.id, {}, 6000);
+    if (alb && alb.genres && alb.genres.data && alb.genres.data[0]) genre = alb.genres.data[0].name;
+  }
+  return { genre, art };
+}
+
+async function lastfmLookup(artist, title) {
+  if (!lastfmKey) return null;
+  const url = `https://ws.audioscrobbler.com/2.0/?method=track.getInfo&api_key=${encodeURIComponent(lastfmKey)}` +
+    `&artist=${encodeURIComponent(artist)}&track=${encodeURIComponent(title)}&format=json&autocorrect=1`;
+  const res = await fetchJson(url, {}, 6000);
+  const track = res && res.track;
+  if (!track) return null;
+  let genre = null;
+  if (track.toptags && track.toptags.tag && track.toptags.tag.length) genre = track.toptags.tag[0].name;
+  let art = null;
+  if (track.album && Array.isArray(track.album.image)) {
+    const imgs = track.album.image.filter((i) => i && i['#text']);
+    if (imgs.length) art = imgs[imgs.length - 1]['#text'];
+  }
+  return { genre, art };
 }
 
 async function itunesLookup(artist, title) {
@@ -384,6 +430,14 @@ function register(mainWindow) {
   ipcMain.handle('spotify:setClientId', (_e, id) => { spotify.clientId = (id || '').trim(); saveConfig(); return spotifyStatus(); });
   ipcMain.handle('spotify:connect', async () => { try { return await spotifyConnect(); } catch (e) { return { ok: false, error: String(e && e.code || e) }; } });
   ipcMain.handle('spotify:disconnect', () => { spotifyDisconnect(); return spotifyStatus(); });
+
+  ipcMain.handle('providers:get', () => providersStatus());
+  ipcMain.handle('providers:set', (_e, patch) => { providers = { ...providers, ...(patch || {}) }; saveConfig(); metaCache.clear(); return providersStatus(); });
+  ipcMain.handle('lastfm:setKey', (_e, key) => { lastfmKey = (key || '').trim(); saveConfig(); metaCache.clear(); return providersStatus(); });
+}
+
+function providersStatus() {
+  return { providers, hasLastfmKey: !!lastfmKey, spotify: spotifyStatus() };
 }
 
 function dispose() {

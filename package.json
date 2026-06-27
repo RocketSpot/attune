@@ -1,7 +1,7 @@
 {
   "name": "attune",
   "productName": "Attune",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Attune — desktop control & smart auto-EQ for CMF Buds Pro 2 and Nothing/CMF earbuds. Battery, ANC, EQ, gestures, colour themes, and genre-based Smart Tuning over Bluetooth.",
   "main": "src/main/main.js",
   "author": "Ryan <ryan@wear.zone>",

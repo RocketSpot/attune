@@ -71,14 +71,18 @@ let currentModel = null;
 
 function onModelDetected(model, sku) {
   currentModel = model;
-  const valid = (c) => ['black', 'white', 'orange', 'blue'].includes(c);
+  currentCodename = model.codename || 'espeon';
+  buildSwatches();
+  const cols = deviceColors();
   const saved = localStorage.getItem(COLOR_PREF);
-  setBudColor(valid(saved) ? saved : (valid(model.color) ? model.color : 'orange'), false);
+  const color = cols.includes(saved) ? saved : (cols.includes(model.color) ? model.color : cols[0]);
+  setBudColor(color, false);
+  applyCapabilities(model.base);
   $('dev-name').textContent = model.name;
   $('tb-device').textContent = model.name;
   setConnectStatus('Connected to ' + model.name, '');
   if (model.base !== 'B172') {
-    toast('Optimized for CMF Buds Pro 2 — some controls may differ on ' + model.name);
+    toast('Connected to ' + model.name + ' — Smart Tuning EQ is optimized for CMF Buds Pro 2');
   }
 }
 
@@ -108,31 +112,50 @@ async function disconnect() {
 $('btn-disconnect').addEventListener('click', () => { disconnect(); });
 
 /* ------------------------------------------------------------------ *
- * Earbud colour + dynamic theme                                      *
+ * Earbud colour + dynamic theme (per-device colourways)              *
  * ------------------------------------------------------------------ */
-// The four CMF Buds Pro 2 colourways → bud art + matching accent theme.
-const COLORS = {
-  black:  { name: 'Dark Grey',  accent: '#8b929c', dim: '#5d636c' },
-  white:  { name: 'Light Grey', accent: '#d7dbe1', dim: '#a2a8b2' },
-  orange: { name: 'Orange',     accent: '#ff6a1a', dim: '#bf4d10' },
-  blue:   { name: 'Blue',       accent: '#3f82f7', dim: '#295bb5' }
+const COLOR_META = {
+  black:  { name: 'Dark Grey',  sw: '#3a3b3d', accent: '#8b929c', dim: '#5d636c' },
+  white:  { name: 'Light Grey', sw: '#dcdde0', accent: '#d7dbe1', dim: '#a2a8b2' },
+  orange: { name: 'Orange',     sw: '#ff6a1a', accent: '#ff6a1a', dim: '#bf4d10' },
+  blue:   { name: 'Blue',       sw: '#3f82f7', accent: '#3f82f7', dim: '#295bb5' },
+  yellow: { name: 'Yellow',     sw: '#ffcf3f', accent: '#ffcf3f', dim: '#bd9412' }
+};
+const DEVICE_COLORS = {
+  espeon: ['black', 'white', 'orange', 'blue'], donphan: ['black', 'orange', 'white'],
+  corsola: ['black', 'white', 'orange'], cleffa: ['black', 'white', 'yellow'],
+  entei: ['black', 'white'], two: ['black', 'white'], one: ['black', 'white'],
+  flaaffy: ['white'], sticks: ['white']
 };
 const COLOR_PREF = 'cmf.budColor';
+let currentCodename = 'espeon';
 let currentColor = 'orange';
 
+function deviceColors() { return DEVICE_COLORS[currentCodename] || ['orange']; }
+
+function buildSwatches() {
+  const sw = $('swatches');
+  if (!sw) return;
+  sw.innerHTML = deviceColors()
+    .map((c) => `<button data-color="${c}"><span class="sw" style="background:${COLOR_META[c].sw}"></span>${COLOR_META[c].name}</button>`)
+    .join('');
+}
+
 function setBudColor(color, persist = true) {
-  if (!COLORS[color]) color = 'orange';
+  const cols = deviceColors();
+  if (!cols.includes(color)) color = cols[0];
   currentColor = color;
-  const base = `assets/buds/espeon_${color}_`;
+  const m = COLOR_META[color] || COLOR_META.orange;
+  const base = `assets/buds/${currentCodename}_${color}_`;
   $('img-l').src = base + 'left.webp';
   $('img-r').src = base + 'right.webp';
   $('img-c').src = base + 'case.webp';
   const cb = $('connect-bud'); if (cb) cb.src = base + 'right.webp';
 
-  document.documentElement.style.setProperty('--accent', COLORS[color].accent);
-  document.documentElement.style.setProperty('--accent-dim', COLORS[color].dim);
+  document.documentElement.style.setProperty('--accent', m.accent);
+  document.documentElement.style.setProperty('--accent-dim', m.dim);
 
-  const nameEl = $('color-name'); if (nameEl) nameEl.textContent = COLORS[color].name;
+  const nameEl = $('color-name'); if (nameEl) nameEl.textContent = m.name;
   const sw = $('swatches');
   if (sw) sw.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.color === color));
 
@@ -143,11 +166,28 @@ function setBudColor(color, persist = true) {
   const sw = $('swatches');
   if (sw) sw.addEventListener('click', (e) => {
     const b = e.target.closest('button');
-    if (b && b.dataset.color) { setBudColor(b.dataset.color, true); toast(COLORS[b.dataset.color].name + ' theme'); }
+    if (b && b.dataset.color) { setBudColor(b.dataset.color, true); toast((COLOR_META[b.dataset.color] || {}).name + ' theme'); }
   });
 })();
 
-// Apply the saved theme at launch so the look is consistent before connecting.
+/* ------------------------------------------------------------------ *
+ * Per-model capabilities — show only the controls a device supports  *
+ * ------------------------------------------------------------------ */
+const CAPS = {
+  bass: ['B171', 'B172', 'B168', 'B162'],
+  presets: ['B172', 'B168'],          // named listening-mode EQ presets
+  fitTest: ['B155', 'B171', 'B172', 'B162']
+};
+function showEl(el, visible) { if (el) el.style.display = visible ? '' : 'none'; }
+function applyCapabilities(base) {
+  showEl($('card-bass'), CAPS.bass.includes(base));
+  showEl($('eq-chips'), CAPS.presets.includes(base));
+  showEl($('card-fit'), CAPS.fitTest.includes(base));
+  showEl($('row-inear'), base !== 'B174');
+}
+
+// Launch theme (before any device connects): espeon orange or saved colour.
+buildSwatches();
 setBudColor(localStorage.getItem(COLOR_PREF) || 'orange', false);
 
 /* ------------------------------------------------------------------ *
@@ -515,19 +555,63 @@ let smartBass = localStorage.getItem(SMART_BASS_PREF) === '1';
 let smartLastKey = '';   // track we last auto-applied
 let mediaWatching = false;
 
-// Map a genre string to an EQ preset (+ whether to boost bass).
-function tuningForGenre(genre) {
+// EQ preset names (listening-mode index → label).
+const EQ_NAMES = ['Balanced', 'Rock', 'Electronic', 'Pop', 'Enhance Vocals', 'Classical', 'Custom'];
+
+// Genre buckets: keyword match → default {eq, bass}. Users override per bucket.
+const GENRE_BUCKETS = [
+  { key: 'hiphop',     label: 'Hip-Hop / Rap',             match: ['hip hop', 'hip-hop', 'rap', 'trap', 'grime', 'drill'], def: { eq: 2, bass: true } },
+  { key: 'electronic', label: 'Electronic / Dance',        match: ['electronic', 'edm', 'dance', 'house', 'techno', 'dubstep', 'trance', 'drum', 'garage', 'bass'], def: { eq: 2, bass: true } },
+  { key: 'rock',       label: 'Rock',                      match: ['rock', 'grunge', 'britpop'], def: { eq: 1, bass: false } },
+  { key: 'metal',      label: 'Metal / Punk',              match: ['metal', 'punk', 'hardcore', 'emo'], def: { eq: 1, bass: true } },
+  { key: 'pop',        label: 'Pop',                       match: ['pop', 'k-pop', 'indie'], def: { eq: 3, bass: false } },
+  { key: 'rnb',        label: 'R&B / Soul / Funk',         match: ['r&b', 'rnb', 'soul', 'funk', 'disco', 'motown'], def: { eq: 3, bass: true } },
+  { key: 'jazz',       label: 'Jazz / Blues',              match: ['jazz', 'blues', 'swing', 'bebop'], def: { eq: 4, bass: false } },
+  { key: 'classical',  label: 'Classical / Score',         match: ['classical', 'orchestr', 'piano', 'opera', 'soundtrack', 'score'], def: { eq: 5, bass: false } },
+  { key: 'acoustic',   label: 'Acoustic / Folk / Country', match: ['acoustic', 'folk', 'singer', 'songwriter', 'country', 'americana'], def: { eq: 4, bass: false } },
+  { key: 'latin',      label: 'Latin / Reggae / Afro',     match: ['latin', 'reggae', 'reggaeton', 'salsa', 'afro', 'dancehall'], def: { eq: 3, bass: true } },
+  { key: 'chill',      label: 'Lo-fi / Chill / Ambient',   match: ['lo-fi', 'lofi', 'chill', 'ambient', 'new age', 'downtempo'], def: { eq: 0, bass: false } },
+  { key: 'spoken',     label: 'Podcast / Spoken',          match: ['podcast', 'spoken', 'speech', 'audiobook', 'talk', 'comedy'], def: { eq: 4, bass: false } },
+  { key: 'default',    label: 'Everything else',           match: [], def: { eq: 0, bass: false } }
+];
+
+const GENRE_RULES_PREF = 'attune.genreRules';
+const ARTIST_RULES_PREF = 'attune.artistRules';
+let genreRules = (() => { try { return JSON.parse(localStorage.getItem(GENRE_RULES_PREF)) || {}; } catch (_) { return {}; } })();
+let artistRules = (() => { try { return JSON.parse(localStorage.getItem(ARTIST_RULES_PREF)) || []; } catch (_) { return []; } })();
+function saveGenreRules() { localStorage.setItem(GENRE_RULES_PREF, JSON.stringify(genreRules)); }
+function saveArtistRules() { localStorage.setItem(ARTIST_RULES_PREF, JSON.stringify(artistRules)); }
+
+function bucketForGenre(genre) {
   if (!genre) return null;
   const g = genre.toLowerCase();
-  const has = (...k) => k.some((x) => g.includes(x));
-  if (has('hip hop', 'hip-hop', 'rap', 'trap', 'grime', 'drill')) return { eq: 2, bass: true, label: 'Electronic' };
-  if (has('electronic', 'edm', 'dance', 'house', 'techno', 'dubstep', 'trance', 'drum', 'bass', 'garage')) return { eq: 2, bass: true, label: 'Electronic' };
-  if (has('rock', 'metal', 'punk', 'grunge')) return { eq: 1, bass: false, label: 'Rock' };
-  if (has('classical', 'orchestr', 'piano', 'instrumental', 'soundtrack', 'score', 'ambient', 'new age')) return { eq: 5, bass: false, label: 'Classical' };
-  if (has('jazz', 'blues', 'soul', 'acoustic', 'folk', 'country', 'singer', 'songwriter')) return { eq: 4, bass: false, label: 'Enhance Vocals' };
-  if (has('podcast', 'spoken', 'speech', 'audiobook', 'talk')) return { eq: 4, bass: false, label: 'Enhance Vocals' };
-  if (has('pop', 'indie', 'r&b', 'rnb', 'latin', 'reggae', 'disco', 'funk', 'k-pop')) return { eq: 3, bass: false, label: 'Pop' };
-  return { eq: 0, bass: false, label: 'Balanced' };
+  for (const b of GENRE_BUCKETS) {
+    if (b.key === 'default') continue;
+    if (b.match.some((k) => g.includes(k))) return b;
+  }
+  return GENRE_BUCKETS.find((b) => b.key === 'default');
+}
+function ruleForBucket(b) { const r = genreRules[b.key] || b.def; return { eq: r.eq, bass: !!r.bass }; }
+
+function tuningForGenre(genre) {
+  const b = bucketForGenre(genre);
+  if (!b) return null;
+  const r = ruleForBucket(b);
+  return { eq: r.eq, bass: r.bass, label: EQ_NAMES[r.eq] || 'Balanced' };
+}
+
+function findArtistOverride(artist) {
+  if (!artist) return null;
+  const a = artist.trim().toLowerCase();
+  if (!a) return null;
+  return artistRules.find((r) => r.artist && (a === r.artist.toLowerCase() || a.includes(r.artist.toLowerCase()))) || null;
+}
+
+function resolveTuning(artist, genre) {
+  const ov = findArtistOverride(artist);
+  if (ov) return { eq: ov.eq, bass: !!ov.bass, label: EQ_NAMES[ov.eq] || 'Balanced', source: 'artist' };
+  const g = tuningForGenre(genre);
+  return g ? { ...g, source: 'genre' } : null;
 }
 
 function applyBass(enabled, level) {
@@ -539,9 +623,7 @@ function applyBass(enabled, level) {
 }
 
 const SMART_BASS_LEVEL = 3; // bass level Smart Tuning sets for bass-forward genres
-function applyTuning(genre) {
-  const t = tuningForGenre(genre);
-  if (!t) return null;
+function applyTuningObj(t) {
   setListeningMode(t.eq);
   setEQfromRead(t.eq);
   let bassApplied = null; // null = not managed, 0 = turned off, >0 = level set
@@ -549,7 +631,7 @@ function applyTuning(genre) {
     applyBass(t.bass, t.bass ? SMART_BASS_LEVEL : bassLevel);
     bassApplied = t.bass ? SMART_BASS_LEVEL : 0;
   }
-  return { label: t.label, bassApplied };
+  return { label: t.label, bassApplied, source: t.source };
 }
 
 function setSmartState(on) {
@@ -617,15 +699,16 @@ if (window.cmf && window.cmf.onMediaUpdate) {
     setNowPlayingArt(d.art || null);
 
     const key = ((d.artist || '') + '|' + (d.title || '')).toLowerCase();
-    if (d.playing && d.genre && SPPsocket && key !== smartLastKey) {
+    const t = resolveTuning(d.artist, d.genre);
+    // Apply once per track while playing & connected (artist overrides work even with no genre).
+    if (d.playing && SPPsocket && t && key !== smartLastKey && (t.source === 'artist' || d.genre)) {
       smartLastKey = key;
-      const r = applyTuning(d.genre);
-      if (r) {
-        let txt = '→ ' + r.label;
-        if (r.bassApplied !== null) txt += r.bassApplied > 0 ? ' · Bass ' + r.bassApplied : ' · Bass off';
-        $('np-eq').textContent = txt;
-        toast('Smart Tuning · ' + r.label + (r.bassApplied > 0 ? ' + Bass ' + r.bassApplied : '') + ' · ' + d.genre);
-      }
+      const r = applyTuningObj(t);
+      let txt = '→ ' + r.label;
+      if (r.bassApplied !== null) txt += r.bassApplied > 0 ? ' · Bass ' + r.bassApplied : ' · Bass off';
+      $('np-eq').textContent = txt;
+      const why = r.source === 'artist' ? d.artist : (d.genre || '');
+      toast('Smart Tuning · ' + r.label + (r.bassApplied > 0 ? ' + Bass ' + r.bassApplied : '') + (why ? ' · ' + why : ''));
     }
   });
 }
@@ -679,6 +762,134 @@ if (window.cmf && window.cmf.onSpotifyStatus) window.cmf.onSpotifyStatus((s) => 
 if (window.cmf && window.cmf.spotifyStatus) window.cmf.spotifyStatus().then(renderSpotify).catch(() => {});
 
 /* ------------------------------------------------------------------ *
+ * Music providers (Apple / Deezer toggles, Last.fm key)              *
+ * ------------------------------------------------------------------ */
+function renderProviders(s) {
+  if (!s || !s.providers) return;
+  if ($('prov-apple')) $('prov-apple').checked = !!s.providers.apple;
+  if ($('prov-deezer')) $('prov-deezer').checked = !!s.providers.deezer;
+  if ($('lfm-key') && s.hasLastfmKey) $('lfm-key').placeholder = 'API key saved ✓';
+  if ($('lfm-desc')) $('lfm-desc').textContent = (s.providers.lastfm && s.hasLastfmKey) ? 'Active — using Last.fm tags' : 'Add a free API key for richer genre tags';
+  if ($('lfm-btn')) $('lfm-btn').textContent = s.hasLastfmKey ? 'Change key' : 'Set key';
+}
+if ($('prov-apple')) $('prov-apple').addEventListener('change', async (e) => renderProviders(await window.cmf.providersSet({ apple: e.target.checked })));
+if ($('prov-deezer')) $('prov-deezer').addEventListener('change', async (e) => renderProviders(await window.cmf.providersSet({ deezer: e.target.checked })));
+if ($('lfm-btn')) $('lfm-btn').addEventListener('click', () => $('lfm-setup').classList.toggle('open'));
+if ($('lfm-save')) $('lfm-save').addEventListener('click', async () => {
+  const key = $('lfm-key').value.trim();
+  await window.cmf.lastfmSetKey(key);
+  const s = await window.cmf.providersSet({ lastfm: !!key });
+  renderProviders(s);
+  $('lfm-setup').classList.remove('open');
+  toast(key ? 'Last.fm key saved' : 'Last.fm key cleared');
+});
+if (window.cmf && window.cmf.providersGet) window.cmf.providersGet().then(renderProviders).catch(() => {});
+
+/* ------------------------------------------------------------------ *
+ * Genre rules editor + artist overrides                              *
+ * ------------------------------------------------------------------ */
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function eqOptions(selected) {
+  let o = '';
+  for (let i = 0; i <= 5; i++) o += `<option value="${i}" ${i === selected ? 'selected' : ''}>${EQ_NAMES[i]}</option>`;
+  return o;
+}
+
+function renderGenreRules() {
+  const host = $('genre-rules');
+  if (!host) return;
+  host.innerHTML = GENRE_BUCKETS.map((b) => {
+    const r = ruleForBucket(b);
+    return `<div class="grule" data-key="${b.key}">
+      <span class="gname">${b.label}</span>
+      <select class="grule-eq">${eqOptions(r.eq)}</select>
+      <label class="mini-chk"><input type="checkbox" class="grule-bass" ${r.bass ? 'checked' : ''}> Bass</label>
+    </div>`;
+  }).join('');
+  host.querySelectorAll('.grule').forEach((row) => {
+    const key = row.dataset.key;
+    const eqSel = row.querySelector('.grule-eq');
+    const bassChk = row.querySelector('.grule-bass');
+    const save = () => { genreRules[key] = { eq: parseInt(eqSel.value, 10), bass: bassChk.checked }; saveGenreRules(); };
+    eqSel.addEventListener('change', save);
+    bassChk.addEventListener('change', save);
+  });
+}
+if ($('genre-reset')) $('genre-reset').addEventListener('click', () => { genreRules = {}; saveGenreRules(); renderGenreRules(); toast('Genre rules reset to defaults'); });
+
+function renderArtistRules() {
+  const host = $('artist-list');
+  if (!host) return;
+  if (!artistRules.length) { host.innerHTML = '<div class="empty-line">No artist overrides yet.</div>'; return; }
+  host.innerHTML = artistRules.map((r, i) => `<div class="arow">
+    <span class="aname">${escapeHtml(r.artist)}</span>
+    <span class="atag">${EQ_NAMES[r.eq]}${r.bass ? ' · Bass' : ''}</span>
+    <span class="arm" data-i="${i}">×</span>
+  </div>`).join('');
+  host.querySelectorAll('.arm').forEach((b) => b.addEventListener('click', () => {
+    artistRules.splice(parseInt(b.dataset.i, 10), 1); saveArtistRules(); renderArtistRules();
+  }));
+}
+if ($('artist-eq')) $('artist-eq').innerHTML = eqOptions(0);
+if ($('artist-add-btn')) $('artist-add-btn').addEventListener('click', () => {
+  const name = $('artist-name').value.trim();
+  if (!name) { toast('Enter an artist name'); return; }
+  artistRules.push({ artist: name, eq: parseInt($('artist-eq').value, 10), bass: $('artist-bass').checked });
+  saveArtistRules(); renderArtistRules();
+  $('artist-name').value = ''; $('artist-bass').checked = false;
+  toast('Override added for ' + name);
+});
+renderGenreRules();
+renderArtistRules();
+
+// Collapsible cards (Genre Rules / Artist Overrides headers)
+document.querySelectorAll('.card-head[data-toggle]').forEach((h) => {
+  h.addEventListener('click', () => {
+    const body = $(h.dataset.toggle);
+    if (!body) return;
+    h.classList.toggle('open', body.classList.toggle('open'));
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Settings (run in background) + Feedback                            *
+ * ------------------------------------------------------------------ */
+let appVersion = '';
+if (window.cmf && window.cmf.settingsGet) {
+  window.cmf.settingsGet().then((s) => {
+    if ($('set-tray')) $('set-tray').checked = s.closeToTray !== false;
+    if ($('fb-repo') && s.githubRepo) $('fb-repo').value = s.githubRepo;
+  }).catch(() => {});
+}
+if ($('set-tray')) $('set-tray').addEventListener('change', (e) => window.cmf.settingsSet({ closeToTray: e.target.checked }));
+
+if ($('fb-send')) $('fb-send').addEventListener('click', async () => {
+  const text = $('fb-text').value.trim();
+  const cat = $('fb-category').value;
+  if (!text) { toast('Write some feedback first'); return; }
+  const ts = new Date().toISOString();
+  await window.cmf.feedbackSave({ ts, category: cat, text });
+  const s = await window.cmf.settingsGet();
+  const repo = ((s && s.githubRepo) || '').trim();
+  if (/^[\w.-]+\/[\w.-]+$/.test(repo)) {
+    const url = `https://github.com/${repo}/issues/new?title=${encodeURIComponent('[' + cat + '] ')}&body=${encodeURIComponent(text + '\n\n— Attune v' + appVersion)}`;
+    window.open(url, '_blank');
+    toast('Opening a GitHub issue…');
+  } else {
+    $('fb-repo-setup').classList.add('open');
+    toast('Saved locally. Set your GitHub repo to file an issue.');
+  }
+  $('fb-text').value = '';
+});
+if ($('fb-open')) $('fb-open').addEventListener('click', () => window.cmf.feedbackOpen());
+if ($('fb-repo-save')) $('fb-repo-save').addEventListener('click', async () => {
+  const repo = $('fb-repo').value.trim();
+  await window.cmf.settingsSet({ githubRepo: repo });
+  $('fb-repo-setup').classList.remove('open');
+  toast(repo ? 'GitHub repo saved' : 'Repo cleared');
+});
+
+/* ------------------------------------------------------------------ *
  * Diagnostics from main process                                      *
  * ------------------------------------------------------------------ */
 if (window.cmf && window.cmf.onPortList) {
@@ -689,7 +900,7 @@ if (window.cmf && window.cmf.onPortList) {
   });
 }
 
-window.cmf.version().then((v) => { $('tb-device').dataset.v = v; }).catch(() => {});
+window.cmf.version().then((v) => { appVersion = v; $('tb-device').dataset.v = v; }).catch(() => {});
 
 console.log('[boot] renderer scripts loaded; serial=' + (navigator.serial ? 'available' : 'MISSING'));
 
@@ -727,4 +938,11 @@ if (new URLSearchParams(location.search).get('demo')) {
   setNowPlayingArt('data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7b3ff2"/><stop offset="0.5" stop-color="#ff2e63"/><stop offset="1" stop-color="#ff8a1a"/></linearGradient></defs><rect width="120" height="120" fill="url(#g)"/><circle cx="60" cy="60" r="15" fill="#0d0d0d"/><circle cx="60" cy="60" r="4" fill="#fff"/></svg>'));
   renderSpotify({ connected: false, hasClientId: false });
   if (new URLSearchParams(location.search).get('blue')) setBudColor('blue', false);
+  // Expand the editor cards + seed an example artist override for preview.
+  artistRules = [{ artist: 'Kendrick Lamar', eq: 2, bass: true }, { artist: 'Bon Iver', eq: 4, bass: false }];
+  renderArtistRules();
+  ['genre-body', 'artist-body'].forEach((id) => {
+    const b = $(id); if (b) b.classList.add('open');
+    const h = document.querySelector(`.card-head[data-toggle="${id}"]`); if (h) h.classList.add('open');
+  });
 }

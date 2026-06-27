@@ -25,11 +25,11 @@ const SVG = `
   </defs>
   <rect x="56" y="56" width="912" height="912" rx="224" fill="url(#bg)"/>
   <g fill="#ffffff" filter="url(#sh)">
-    <rect x="265" y="432" width="78" height="160" rx="39"/>
-    <rect x="369" y="362" width="78" height="300" rx="39"/>
-    <rect x="473" y="302" width="78" height="420" rx="39"/>
-    <rect x="577" y="362" width="78" height="300" rx="39"/>
-    <rect x="681" y="432" width="78" height="160" rx="39"/>
+    <rect x="192" y="362" width="96" height="300" rx="48"/>
+    <rect x="328" y="262" width="96" height="500" rx="48"/>
+    <rect x="464" y="202" width="96" height="620" rx="48"/>
+    <rect x="600" y="292" width="96" height="440" rx="48"/>
+    <rect x="736" y="342" width="96" height="340" rx="48"/>
   </g>
 </svg>`;
 
