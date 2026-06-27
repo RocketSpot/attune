@@ -24,7 +24,7 @@ let win = null;
 let psProc = null;
 let watching = false;
 let lastKey = '';
-const genreCache = new Map(); // "artist|title" -> genre string|null
+const metaCache = new Map(); // "artist|title" -> { genre, art } (art is a data URL or null)
 
 // --- Spotify (optional enrichment) -------------------------------------------
 const SPOTIFY_PORT = 8888;
@@ -149,19 +149,20 @@ async function handleSmtcLine(line) {
   const artist = (data.artist || '').trim();
   const key = (artist + '|' + title).toLowerCase();
 
-  // Same track as last time → just update play state, skip genre lookup.
+  // Same track as last time → just update play state, reuse cached meta.
   if (key === lastKey) {
-    send({ source: 'system', playing, title, artist, app: data.app, album: data.album, genre: genreCache.get(key) || null });
+    const m = metaCache.get(key) || {};
+    send({ source: 'system', playing, title, artist, app: data.app, album: data.album, genre: m.genre || null, art: m.art || null });
     return;
   }
   lastKey = key;
 
-  // Push immediately (without genre), then enrich.
-  send({ source: 'system', playing, title, artist, app: data.app, album: data.album, genre: null });
+  // Push immediately (without genre/art), then enrich.
+  send({ source: 'system', playing, title, artist, app: data.app, album: data.album, genre: null, art: null });
 
-  const genre = await resolveGenre(artist, title);
+  const meta = await resolveMeta(artist, title);
   if (key === lastKey) {
-    send({ source: spotify.tokens ? 'spotify' : 'system', playing, title, artist, app: data.app, album: data.album, genre });
+    send({ source: spotify.tokens ? 'spotify' : 'system', playing, title, artist, app: data.app, album: data.album, genre: meta.genre, art: meta.art });
   }
 }
 
@@ -169,26 +170,61 @@ async function handleSmtcLine(line) {
  * Genre resolution                                                  *
  * ------------------------------------------------------------------ */
 
-async function resolveGenre(artist, title) {
+// Resolve { genre, art } for a track. art is a data URL (album cover) or null.
+async function resolveMeta(artist, title) {
   const key = (artist + '|' + title).toLowerCase();
-  if (genreCache.has(key)) return genreCache.get(key);
+  if (metaCache.has(key)) return metaCache.get(key);
+
   let genre = null;
+  let artUrl = null;
+
   if (spotify.tokens) {
-    try { genre = await spotifyGenre(artist, title); } catch (_) {}
+    try { const r = await spotifyLookup(artist, title); if (r) { genre = r.genre; artUrl = r.art; } } catch (_) {}
   }
-  if (!genre) {
-    try { genre = await itunesGenre(artist, title); } catch (_) {}
+  if (!genre || !artUrl) {
+    try {
+      const r = await itunesLookup(artist, title);
+      if (r) { if (!genre) genre = r.genre; if (!artUrl) artUrl = r.art; }
+    } catch (_) {}
   }
-  genreCache.set(key, genre);
-  return genre;
+
+  let art = null;
+  if (artUrl) { try { art = await fetchArt(artUrl); } catch (_) {} }
+
+  const meta = { genre, art };
+  metaCache.set(key, meta);
+  return meta;
 }
 
-async function itunesGenre(artist, title) {
+async function itunesLookup(artist, title) {
   const term = encodeURIComponent(`${artist} ${title}`.trim());
   const url = `https://itunes.apple.com/search?term=${term}&entity=song&limit=1`;
   const res = await fetchJson(url, {}, 6000);
-  if (res && res.results && res.results[0]) return res.results[0].primaryGenreName || null;
-  return null;
+  const r = res && res.results && res.results[0];
+  if (!r) return null;
+  // Upscale the 100px artwork URL to a crisper 300px cover.
+  let art = r.artworkUrl100 || r.artworkUrl60 || null;
+  if (art) art = art.replace(/\/\d+x\d+bb\.(jpg|png)/, '/300x300bb.$1');
+  return { genre: r.primaryGenreName || null, art };
+}
+
+// Fetch an image URL and return it as a data: URL (keeps the renderer sandboxed).
+async function fetchArt(url) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 7000);
+  try {
+    const r = await fetch(url, { signal: ctrl.signal });
+    if (!r.ok) return null;
+    const ct = (r.headers.get('content-type') || 'image/jpeg').split(';')[0];
+    if (!ct.startsWith('image/')) return null;
+    const buf = Buffer.from(await r.arrayBuffer());
+    if (buf.length > 800000) return null; // sanity cap (~800 KB)
+    return `data:${ct};base64,${buf.toString('base64')}`;
+  } catch (_) {
+    return null;
+  } finally {
+    clearTimeout(t);
+  }
 }
 
 /* ------------------------------------------------------------------ *
@@ -282,7 +318,7 @@ async function spotifyToken() {
   return spotify.tokens.access;
 }
 
-async function spotifyGenre(artist, title) {
+async function spotifyLookup(artist, title) {
   const token = await spotifyToken();
   if (!token) return null;
   const q = encodeURIComponent(`track:${title} artist:${artist}`);
@@ -290,10 +326,20 @@ async function spotifyGenre(artist, title) {
     { headers: { Authorization: 'Bearer ' + token } }, 6000);
   const track = search && search.tracks && search.tracks.items && search.tracks.items[0];
   if (!track || !track.artists || !track.artists[0]) return null;
+
+  // Album cover: prefer the ~300px image (images are largest-first).
+  let art = null;
+  if (track.album && track.album.images && track.album.images.length) {
+    const imgs = track.album.images;
+    art = (imgs[1] || imgs[0]).url;
+  }
+
+  let genre = null;
   const artistData = await fetchJson('https://api.spotify.com/v1/artists/' + track.artists[0].id,
     { headers: { Authorization: 'Bearer ' + token } }, 6000);
-  if (artistData && artistData.genres && artistData.genres.length) return artistData.genres[0];
-  return null;
+  if (artistData && artistData.genres && artistData.genres.length) genre = artistData.genres[0];
+
+  return { genre, art };
 }
 
 function spotifyDisconnect() {

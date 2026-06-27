@@ -567,6 +567,15 @@ function startSmart() {
   smartLastKey = '';
   try { window.cmf.mediaStart(); } catch (_) {}
 }
+// Show the album cover (data URL) as the now-playing thumbnail, or fall back
+// to the note icon when there's no art.
+function setNowPlayingArt(art) {
+  const el = $('np-art');
+  if (!el) return;
+  if (art) { el.style.backgroundImage = `url("${art}")`; el.classList.add('has-art'); }
+  else { el.style.backgroundImage = ''; el.classList.remove('has-art'); }
+}
+
 function stopSmart() {
   mediaWatching = false;
   try { window.cmf.mediaStop(); } catch (_) {}
@@ -575,6 +584,7 @@ function stopSmart() {
   $('np-title').textContent = 'Nothing playing';
   $('np-sub').textContent = 'Play a song in Spotify or any app to begin';
   $('np-eq').textContent = '';
+  setNowPlayingArt(null);
 }
 
 function restoreSmartTuning() {
@@ -597,12 +607,14 @@ if (window.cmf && window.cmf.onMediaUpdate) {
       $('np-title').textContent = 'Nothing playing';
       $('np-sub').textContent = 'Play a song in Spotify or any app to begin';
       $('np-eq').textContent = '';
+      setNowPlayingArt(null);
       smartLastKey = '';
       return;
     }
     $('np-title').textContent = d.title;
     $('np-sub').textContent = (d.artist || 'Unknown artist') + (d.genre ? ' · ' + d.genre : '');
     if (np) np.classList.toggle('playing', !!d.playing);
+    setNowPlayingArt(d.art || null);
 
     const key = ((d.artist || '') + '|' + (d.title || '')).toLowerCase();
     if (d.playing && d.genre && SPPsocket && key !== smartLastKey) {
@@ -712,6 +724,7 @@ if (new URLSearchParams(location.search).get('demo')) {
   $('np-sub').textContent = 'Kendrick Lamar · Hip-Hop/Rap';
   $('np-eq').textContent = '→ Electronic · Bass 3';
   document.querySelector('.np').classList.add('playing');
+  setNowPlayingArt('data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7b3ff2"/><stop offset="0.5" stop-color="#ff2e63"/><stop offset="1" stop-color="#ff8a1a"/></linearGradient></defs><rect width="120" height="120" fill="url(#g)"/><circle cx="60" cy="60" r="15" fill="#0d0d0d"/><circle cx="60" cy="60" r="4" fill="#fff"/></svg>'));
   renderSpotify({ connected: false, hasClientId: false });
   if (new URLSearchParams(location.search).get('blue')) setBudColor('blue', false);
 }
