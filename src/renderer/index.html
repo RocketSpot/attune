@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self';" />
+  <title>Attune</title>
+  <link rel="stylesheet" href="theme.css" />
+</head>
+<body>
+
+  <!-- ===== Title bar ===== -->
+  <div id="titlebar">
+    <span class="brand">at<b>·</b>tune</span>
+    <span class="tb-sub" id="tb-device"></span>
+    <span class="spacer"></span>
+    <div class="win-btns">
+      <button id="min" title="Minimize">
+        <svg width="12" height="12" viewBox="0 0 12 12"><rect x="1" y="5.5" width="10" height="1.2" fill="currentColor"/></svg>
+      </button>
+      <button id="close" class="close" title="Close">
+        <svg width="12" height="12" viewBox="0 0 12 12"><path d="M1 1l10 10M11 1L1 11" stroke="currentColor" stroke-width="1.3"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="app">
+
+    <!-- ===== Connect view ===== -->
+    <section id="connect-view" class="view active">
+      <div class="connect-card">
+        <div class="connect-logo">AT<b>·</b>TUNE</div>
+        <div class="connect-sub">for CMF Buds Pro 2</div>
+        <img id="connect-bud" class="bud-hero" src="assets/buds/espeon_orange_right.webp" alt="CMF Buds Pro 2" />
+        <button id="btn-connect" class="btn-primary">Connect</button>
+        <div id="connect-status"></div>
+        <div class="connect-hint">
+          Make sure your <b>CMF Buds Pro 2</b> are <b>paired in Windows Bluetooth settings</b> and
+          taken out of the case, then click Connect and pick them from the list.
+        </div>
+        <div class="footer-link">
+          Powered by the open-source <a href="https://github.com/radiance-project/ear-web" target="_blank">ear (web)</a> protocol · unofficial
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Control view ===== -->
+    <section id="control-view" class="view">
+      <div class="panel">
+
+        <div class="dev-header">
+          <div class="dev-title">
+            <h1 id="dev-name">CMF Buds Pro 2</h1>
+            <div class="meta"><span class="dot">●</span> <span id="dev-conn">Connected</span> · FW <span id="dev-fw">—</span></div>
+          </div>
+          <button id="btn-disconnect" class="btn-ghost">Disconnect</button>
+        </div>
+
+        <!-- Battery hero -->
+        <div class="hero">
+          <div class="batt" id="batt-l">
+            <img id="img-l" src="assets/buds/espeon_orange_left.webp" alt="Left" />
+            <div class="lbl">Left</div>
+            <div class="pct"><span id="pct-l">--</span><span class="chg" id="chg-l" style="display:none">⚡</span></div>
+            <div class="bar"><i id="bar-l"></i></div>
+          </div>
+          <div class="batt" id="batt-c">
+            <img id="img-c" src="assets/buds/espeon_orange_case.webp" alt="Case" />
+            <div class="lbl">Case</div>
+            <div class="pct"><span id="pct-c">--</span><span class="chg" id="chg-c" style="display:none">⚡</span></div>
+            <div class="bar"><i id="bar-c"></i></div>
+          </div>
+          <div class="batt" id="batt-r">
+            <img id="img-r" src="assets/buds/espeon_orange_right.webp" alt="Right" />
+            <div class="lbl">Right</div>
+            <div class="pct"><span id="pct-r">--</span><span class="chg" id="chg-r" style="display:none">⚡</span></div>
+            <div class="bar"><i id="bar-r"></i></div>
+          </div>
+        </div>
+
+        <!-- Smart Tuning -->
+        <div class="card">
+          <h2>Smart Tuning <span class="tag" id="smart-state">Off</span></h2>
+          <div class="row" style="padding-top:0;">
+            <div class="txt"><div class="t">Auto-adjust EQ to the music</div><div class="d">Detects what's playing and matches your sound automatically</div></div>
+            <label class="switch"><input type="checkbox" id="smart-on"><span class="track"></span></label>
+          </div>
+          <div class="collapse" id="smart-body">
+            <div class="np">
+              <div class="np-art" id="np-art">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20 4.2c0-.5-.45-.9-.95-.81l-8.4 1.62c-.38.07-.65.4-.65.79v8.94A3.2 3.2 0 1 0 11.6 17V9.2l6.8-1.31v4.04A3.2 3.2 0 1 0 20 14.8V4.2z"/></svg>
+              </div>
+              <div class="np-txt">
+                <div class="np-title" id="np-title">Nothing playing</div>
+                <div class="np-sub" id="np-sub">Play a song in Spotify or any app to begin</div>
+              </div>
+              <div class="np-eq" id="np-eq"></div>
+            </div>
+            <div class="row">
+              <div class="txt"><div class="t">Also adjust Bass Enhance</div><div class="d">Add bass for hip-hop &amp; electronic, ease it off elsewhere</div></div>
+              <label class="switch"><input type="checkbox" id="smart-bass"><span class="track"></span></label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Music Sources -->
+        <div class="card">
+          <h2>Music Sources</h2>
+          <div class="src-row">
+            <div class="src-ico">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="13" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M8 20h8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            </div>
+            <div class="txt"><div class="t">System Media (Windows)</div><div class="d">Reads Spotify, browsers, Apple Music &amp; more — no setup needed</div></div>
+            <span class="src-badge on">Active</span>
+          </div>
+          <div class="src-row">
+            <div class="src-ico spotify">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zm4.6 14.4a.62.62 0 01-.86.21c-2.35-1.44-5.3-1.76-8.79-.96a.62.62 0 11-.28-1.21c3.8-.87 7.07-.5 9.71 1.11.3.18.39.57.22.85zm1.23-2.74a.78.78 0 01-1.07.26c-2.69-1.65-6.79-2.13-9.97-1.17a.78.78 0 11-.45-1.49c3.63-1.1 8.15-.56 11.24 1.33.36.22.48.7.25 1.07zm.1-2.85C14.81 8.95 9.5 8.76 6.42 9.7a.93.93 0 11-.54-1.78c3.54-1.07 9.4-.86 13.11 1.34a.93.93 0 01-.95 1.6z"/></svg>
+            </div>
+            <div class="txt"><div class="t">Spotify <span class="opt">advanced</span></div><div class="d" id="sp-desc">Connect for more accurate genre-based tuning</div></div>
+            <button class="btn-line sm" id="sp-btn">Connect</button>
+          </div>
+          <div class="collapse" id="sp-setup">
+            <div class="sp-help">
+              <p>Spotify needs a free developer app (one-time, ~2 min):</p>
+              <ol>
+                <li>Open <a href="https://developer.spotify.com/dashboard" target="_blank">developer.spotify.com/dashboard</a> → <b>Create app</b>.</li>
+                <li>Add this <b>Redirect URI</b> exactly:
+                  <span class="sp-uri" id="sp-uri">http://127.0.0.1:8888/callback</span>
+                </li>
+                <li>Copy the app's <b>Client ID</b> and paste it below.</li>
+              </ol>
+              <div class="sp-id-row">
+                <input type="text" id="sp-clientid" placeholder="Spotify Client ID" spellcheck="false" />
+                <button class="btn-line sm" id="sp-save">Save</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Appearance -->
+        <div class="card">
+          <h2>Earbud Colour <span class="tag" id="color-name">Orange</span></h2>
+          <div class="swatches" id="swatches">
+            <button data-color="black"><span class="sw" style="background:#3a3b3d"></span>Dark Grey</button>
+            <button data-color="white"><span class="sw" style="background:#dcdde0"></span>Light Grey</button>
+            <button data-color="orange"><span class="sw" style="background:#ff6a1a"></span>Orange</button>
+            <button data-color="blue"><span class="sw" style="background:#3f82f7"></span>Blue</button>
+          </div>
+        </div>
+
+        <!-- Noise control -->
+        <div class="card">
+          <h2>Noise Control</h2>
+          <div class="seg" id="anc-seg">
+            <button data-mode="off">Off</button>
+            <button data-mode="trans">Transparency</button>
+            <button data-mode="nc">Noise Cancellation</button>
+          </div>
+          <div class="collapse" id="anc-strength-wrap">
+            <div class="pills" id="anc-strength">
+              <button data-s="low">Low</button>
+              <button data-s="mid">Mid</button>
+              <button data-s="high">High</button>
+              <button data-s="adaptive">Adaptive</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Equalizer -->
+        <div class="card">
+          <h2>Equalizer</h2>
+          <div class="chips" id="eq-chips">
+            <button data-eq="0">Balanced</button>
+            <button data-eq="1">Rock</button>
+            <button data-eq="2">Electronic</button>
+            <button data-eq="3">Pop</button>
+            <button data-eq="4">Enhance Vocals</button>
+            <button data-eq="5">Classical</button>
+            <button data-eq="6">Custom</button>
+          </div>
+          <div class="collapse" id="eq-custom">
+            <div class="slider-row"><span class="name">Bass</span><input type="range" id="eq-bass" min="-6" max="6" step="1" value="0"><span class="val" id="eq-bass-v">0</span></div>
+            <div class="slider-row"><span class="name">Mid</span><input type="range" id="eq-mid" min="-6" max="6" step="1" value="0"><span class="val" id="eq-mid-v">0</span></div>
+            <div class="slider-row"><span class="name">Treble</span><input type="range" id="eq-treble" min="-6" max="6" step="1" value="0"><span class="val" id="eq-treble-v">0</span></div>
+          </div>
+          <div class="row" style="border-top:1px solid var(--line); margin-top:8px;">
+            <div class="txt"><div class="t">Advanced EQ</div><div class="d">8-band tuning processed on the buds</div></div>
+            <label class="switch"><input type="checkbox" id="adv-eq"><span class="track"></span></label>
+          </div>
+        </div>
+
+        <!-- Bass enhance -->
+        <div class="card">
+          <h2>Bass Enhance</h2>
+          <div class="row" style="padding-top:0;">
+            <div class="txt"><div class="t">Extra low-end punch</div><div class="d">Boost bass response</div></div>
+            <label class="switch"><input type="checkbox" id="bass-on"><span class="track"></span></label>
+          </div>
+          <div class="collapse" id="bass-wrap">
+            <div class="slider-row"><span class="name">Level</span><input type="range" id="bass-level" min="1" max="5" step="1" value="1"><span class="val" id="bass-level-v">1</span></div>
+          </div>
+        </div>
+
+        <!-- Quick settings -->
+        <div class="card">
+          <h2>Quick Settings</h2>
+          <div class="row">
+            <div class="txt"><div class="t">In-Ear Detection</div><div class="d">Pause when a bud is removed</div></div>
+            <label class="switch"><input type="checkbox" id="in-ear"><span class="track"></span></label>
+          </div>
+          <div class="row">
+            <div class="txt"><div class="t">Low Latency Mode</div><div class="d">Reduce delay for gaming &amp; video</div></div>
+            <label class="switch"><input type="checkbox" id="low-lat"><span class="track"></span></label>
+          </div>
+        </div>
+
+        <!-- Gestures -->
+        <div class="card">
+          <h2>Gestures</h2>
+          <div class="gest-tabs" id="gest-tabs">
+            <button data-side="l" class="on">Left bud</button>
+            <button data-side="r">Right bud</button>
+          </div>
+          <div class="gest-row"><span class="glab">Double tap</span><select id="g-double"></select></div>
+          <div class="gest-row"><span class="glab">Triple tap</span><select id="g-triple"></select></div>
+          <div class="gest-row"><span class="glab">Tap &amp; hold</span><select id="g-hold"></select></div>
+          <div class="anc-sub" id="anc-sub">
+            <div style="font-family:'Mono';font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Cycle modes (pick at least 2)</div>
+            <label class="chk"><input type="checkbox" data-anc="0">Transparency</label>
+            <label class="chk"><input type="checkbox" data-anc="1">Noise Cancellation</label>
+            <label class="chk"><input type="checkbox" data-anc="2">Off</label>
+          </div>
+          <div class="gest-row"><span class="glab">Double tap &amp; hold</span><select id="g-dhold"></select></div>
+        </div>
+
+        <div class="grid-2">
+          <!-- Fit test -->
+          <div class="card">
+            <h2>Ear Tip Fit Test</h2>
+            <div class="fit">
+              <div class="e" id="fit-l"><div class="ring">L</div>Left</div>
+              <div class="e" id="fit-r"><div class="ring">R</div>Right</div>
+            </div>
+            <div id="fit-msg">Put both buds in and run the test.</div>
+            <button class="btn-line" id="btn-fit">Run Test</button>
+          </div>
+
+          <!-- Find my buds -->
+          <div class="card">
+            <h2>Find My Buds</h2>
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <button class="btn-line" id="ring-l">Ring Left</button>
+              <button class="btn-line" id="ring-r">Ring Right</button>
+            </div>
+            <div class="d" style="color:var(--muted-2);font-size:12px;margin-top:12px;text-align:center;">Plays a tone — wear the buds carefully.</div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </div>
+
+  <div id="toast"></div>
+
+  <script src="protocol.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

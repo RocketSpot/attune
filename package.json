@@ -1,0 +1,48 @@
+{
+  "name": "attune",
+  "productName": "Attune",
+  "version": "1.1.0",
+  "description": "Attune — desktop control & smart auto-EQ for CMF Buds Pro 2 and Nothing/CMF earbuds. Battery, ANC, EQ, gestures, colour themes, and genre-based Smart Tuning over Bluetooth.",
+  "main": "src/main/main.js",
+  "author": "Ryan <ryan@wear.zone>",
+  "license": "AGPL-3.0",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "io.github.attune.app",
+    "productName": "Attune",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Attune"
+    },
+    "portable": {
+      "artifactName": "Attune-Portable.exe"
+    }
+  }
+}
