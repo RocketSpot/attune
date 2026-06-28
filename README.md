@@ -33,8 +33,11 @@ mode that auto-matches your EQ to whatever music is playing.
   connected for richer data.
 - **Earbud colour + theme** — pick your colourway; the bud art **and** the whole app accent
   recolour to match.
-- **Runs in the background** — closing the window minimizes to the system tray so Smart
-  Tuning keeps working; quit from the tray.
+- **Runs in the background** — closing the window minimizes to the system tray (with a
+  battery tooltip) so Smart Tuning keeps working; quit from the tray. Optional
+  **start-with-Windows**.
+- **Auto-reconnect** — reconnects to your buds automatically on launch and when they wake
+  from the case, so you rarely need to click Connect.
 - **In-app feedback** — opens a pre-filled GitHub issue (and keeps a local copy).
 
 <div align="center">
@@ -45,7 +48,7 @@ mode that auto-matches your EQ to whatever music is playing.
 
 Grab a build from `dist/` (or the Releases page once published):
 
-- **`Attune Setup 1.2.0.exe`** — installer (Start Menu + Desktop shortcuts).
+- **`Attune Setup 1.3.0.exe`** — installer (Start Menu + Desktop shortcuts).
 - **`Attune-Portable.exe`** — no install, just double-click.
 
 ### Before connecting

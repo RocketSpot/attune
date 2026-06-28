@@ -28,9 +28,12 @@ contextBridge.exposeInMainWorld('cmf', {
   spotifyDisconnect: () => ipcRenderer.invoke('spotify:disconnect'),
   onSpotifyStatus: (cb) => ipcRenderer.on('spotify:status', (_e, data) => cb(data)),
 
-  // app settings (close-to-tray, github repo)
+  // app settings (close-to-tray, github repo, start-at-login)
   settingsGet: () => ipcRenderer.invoke('settings:get'),
   settingsSet: (patch) => ipcRenderer.invoke('settings:set', patch),
+
+  // tray battery tooltip
+  setTrayBattery: (data) => ipcRenderer.send('tray:battery', data),
 
   // feedback
   feedbackSave: (entry) => ipcRenderer.invoke('feedback:save', entry),

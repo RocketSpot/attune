@@ -100,6 +100,8 @@ function onSessionEnd() {
   resetConnectButton();
   resetControlState();
   stopSmart(); // keeps the saved preference; just halts watching
+  trayBatt.l = trayBatt.r = trayBatt.c = null;
+  pushTrayBattery();
 }
 
 async function disconnect() {
@@ -193,6 +195,9 @@ setBudColor(localStorage.getItem(COLOR_PREF) || 'orange', false);
 /* ------------------------------------------------------------------ *
  * Battery (callback: setBattery)                                     *
  * ------------------------------------------------------------------ */
+const trayBatt = { l: null, r: null, c: null };
+function pushTrayBattery() { try { if (window.cmf && window.cmf.setTrayBattery) window.cmf.setTrayBattery(trayBatt); } catch (_) {} }
+
 function setBattery(side, percentage, charging = false) {
   const map = { l: 'l', r: 'r', c: 'c' };
   const s = map[side];
@@ -207,6 +212,8 @@ function setBattery(side, percentage, charging = false) {
     pctEl.textContent = '—';
     barEl.style.width = '0%';
     chgEl.style.display = 'none';
+    trayBatt[s] = null;
+    pushTrayBattery();
     return;
   }
   card.classList.remove('disc');
@@ -214,6 +221,8 @@ function setBattery(side, percentage, charging = false) {
   pctEl.textContent = percentage + '%';
   barEl.style.width = percentage + '%';
   chgEl.style.display = charging ? 'inline' : 'none';
+  trayBatt[s] = percentage;
+  pushTrayBattery();
 }
 
 /* ------------------------------------------------------------------ *
@@ -514,18 +523,21 @@ function applyFit(id, state) {
  * Find my buds                                                       *
  * ------------------------------------------------------------------ */
 let ringingL = false, ringingR = false;
-$('ring-l').addEventListener('click', () => {
-  ringingL = !ringingL;
-  ringBuds(ringingL ? 1 : 0, true);
-  $('ring-l').textContent = ringingL ? 'Stop' : 'Ring Left';
-  $('ring-l').classList.toggle('ringing', ringingL);
-});
-$('ring-r').addEventListener('click', () => {
-  ringingR = !ringingR;
-  ringBuds(ringingR ? 1 : 0, false);
-  $('ring-r').textContent = ringingR ? 'Stop' : 'Ring Right';
-  $('ring-r').classList.toggle('ringing', ringingR);
-});
+const ringTimers = { l: null, r: null };
+const RING_TIMEOUT = 30000; // auto-stop the tone after 30s if left ringing
+
+function setRing(side, on) {
+  const isLeft = side === 'l';
+  const btn = $('ring-' + side);
+  if (isLeft) ringingL = on; else ringingR = on;
+  ringBuds(on ? 1 : 0, isLeft);
+  btn.textContent = on ? 'Stop' : (isLeft ? 'Ring Left' : 'Ring Right');
+  btn.classList.toggle('ringing', on);
+  if (ringTimers[side]) { clearTimeout(ringTimers[side]); ringTimers[side] = null; }
+  if (on) ringTimers[side] = setTimeout(() => setRing(side, false), RING_TIMEOUT);
+}
+$('ring-l').addEventListener('click', () => setRing('l', !ringingL));
+$('ring-r').addEventListener('click', () => setRing('r', !ringingR));
 
 /* ------------------------------------------------------------------ *
  * Firmware (callback: setFirmwareText)                               *
@@ -538,6 +550,8 @@ function setMacAdressText() {}
  * ------------------------------------------------------------------ */
 function resetControlState() {
   ringingL = ringingR = false;
+  if (ringTimers.l) { clearTimeout(ringTimers.l); ringTimers.l = null; }
+  if (ringTimers.r) { clearTimeout(ringTimers.r); ringTimers.r = null; }
   $('ring-l').textContent = 'Ring Left'; $('ring-l').classList.remove('ringing');
   $('ring-r').textContent = 'Ring Right'; $('ring-r').classList.remove('ringing');
   ['fit-l', 'fit-r'].forEach((id) => { $(id).className = 'e'; });
@@ -858,10 +872,12 @@ let appVersion = '';
 if (window.cmf && window.cmf.settingsGet) {
   window.cmf.settingsGet().then((s) => {
     if ($('set-tray')) $('set-tray').checked = s.closeToTray !== false;
+    if ($('set-startup')) $('set-startup').checked = !!s.openAtLogin;
     if ($('fb-repo') && s.githubRepo) $('fb-repo').value = s.githubRepo;
   }).catch(() => {});
 }
 if ($('set-tray')) $('set-tray').addEventListener('change', (e) => window.cmf.settingsSet({ closeToTray: e.target.checked }));
+if ($('set-startup')) $('set-startup').addEventListener('change', (e) => window.cmf.settingsSet({ openAtLogin: e.target.checked }));
 
 if ($('fb-send')) $('fb-send').addEventListener('click', async () => {
   const text = $('fb-text').value.trim();
@@ -903,6 +919,20 @@ if (window.cmf && window.cmf.onPortList) {
 window.cmf.version().then((v) => { appVersion = v; $('tb-device').dataset.v = v; }).catch(() => {});
 
 console.log('[boot] renderer scripts loaded; serial=' + (navigator.serial ? 'available' : 'MISSING'));
+
+/* ------------------------------------------------------------------ *
+ * Auto-reconnect — silently reconnect to already-granted buds on      *
+ * launch and whenever they wake (e.g. taken out of the case).         *
+ * ------------------------------------------------------------------ */
+if (navigator.serial && !new URLSearchParams(location.search).get('demo')) {
+  navigator.serial.addEventListener('connect', () => { tryAutoConnect(); });
+  setTimeout(async () => {
+    if (SPPsocket) return;
+    setConnectStatus('Looking for paired buds', 'busy', true);
+    const ok = await tryAutoConnect();
+    if (!ok && !SPPsocket) setConnectStatus('', '');
+  }, 600);
+}
 
 /* ------------------------------------------------------------------ *
  * Demo mode (?demo=1) — populate the control panel without hardware   *

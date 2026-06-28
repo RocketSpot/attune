@@ -120,8 +120,11 @@ const toHex = (arr) => arr.reduce((acc, b) => acc + b.toString(16).padStart(2, '
  * Connect orchestration                                              *
  * ------------------------------------------------------------------ */
 
-// Read the serial number, identify the model, then start the live session.
+var connecting = false; // synchronous guard against overlapping connect attempts
+
+// Manual connect: ask the user to pick the buds, then connect to them.
 async function cmfConnect() {
+  if (SPPsocket || connecting) return;
   let port;
   try {
     port = await navigator.serial.requestPort({
@@ -132,29 +135,55 @@ async function cmfConnect() {
     onConnectError('no-device');
     return;
   }
-  if (!port) {
-    onConnectError('no-device');
-    return;
-  }
+  if (!port) { onConnectError('no-device'); return; }
+  await connectToPort(port, false);
+}
+
+// Silent reconnect to an already-granted port — no user gesture required.
+// Lets the app reconnect on launch and when the buds wake from the case.
+async function tryAutoConnect() {
+  if (SPPsocket || connecting) return false;
+  let ports = [];
+  try { ports = await navigator.serial.getPorts(); } catch (_) { return false; }
+  const isSpp = (p) => {
+    try { return (((p.getInfo() || {}).bluetoothServiceClassId) || '').toLowerCase() === SPP_UUID; } catch (_) { return false; }
+  };
+  const port = ports.find(isSpp) || ports[0];
+  if (!port) return false;
+  return connectToPort(port, true);
+}
+
+// Open the port, identify the model via the serial-number handshake, run the session.
+async function connectToPort(port, silent) {
+  if (connecting || SPPsocket) return false; // never run two connects at once
+  connecting = true;
 
   try {
     if (!port.readable) await port.open({ baudRate: 9600 });
   } catch (err) {
-    onConnectError('open-failed');
-    return;
+    connecting = false;
+    if (!silent) onConnectError('open-failed');
+    return false;
   }
 
   SPPsocket = port;
 
   // ---- Handshake: request serial number, wait for the reply ----
   let detected = false;
-  const reader = port.readable.getReader();
+  let reader;
+  try {
+    reader = port.readable.getReader();
+  } catch (_) {
+    SPPsocket = null;
+    connecting = false;
+    if (!silent) onConnectError('open-failed');
+    return false;
+  }
+  sessionReader = reader; // so disconnect() can cancel even mid-handshake
   requestSerialNumber();
 
   const handshakeTimeout = setTimeout(() => {
-    if (!detected) {
-      try { reader.cancel(); } catch (_) {}
-    }
+    if (!detected) { try { reader.cancel(); } catch (_) {} }
   }, 6000);
 
   try {
@@ -195,17 +224,26 @@ async function cmfConnect() {
   } finally {
     clearTimeout(handshakeTimeout);
     try { reader.releaseLock(); } catch (_) {}
+    sessionReader = null;
+    connecting = false;
+  }
+
+  // If disconnect() ran during the handshake it nulled SPPsocket — don't revive.
+  if (!SPPsocket) {
+    try { await port.close(); } catch (_) {}
+    return false;
   }
 
   if (!detected) {
-    onConnectError('not-identified');
+    if (!silent) onConnectError('not-identified');
     try { await port.close(); } catch (_) {}
     SPPsocket = null;
-    return;
+    return false;
   }
 
   // ---- Live session on the same (already open) port ----
   startSession(port);
+  return true;
 }
 
 function requestSerialNumber() {

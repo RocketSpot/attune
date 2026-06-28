@@ -15,7 +15,18 @@ let tray = null;
 
 // --- App settings (persisted) -------------------------------------------------------
 const settingsPath = () => path.join(app.getPath('userData'), 'attune-settings.json');
-let settings = { closeToTray: true, githubRepo: 'RocketSpot/attune' };
+let settings = { closeToTray: true, githubRepo: 'RocketSpot/attune', openAtLogin: false };
+function applyLoginItem() {
+  try { app.setLoginItemSettings({ openAtLogin: !!settings.openAtLogin, path: process.execPath }); } catch (_) {}
+}
+function trayTip(b) {
+  if (!b) return 'Attune';
+  const parts = [];
+  if (b.l != null) parts.push('L ' + b.l + '%');
+  if (b.r != null) parts.push('R ' + b.r + '%');
+  if (b.c != null) parts.push('Case ' + b.c + '%');
+  return parts.length ? 'Attune — ' + parts.join(' · ') : 'Attune';
+}
 function loadSettings() {
   try { settings = { ...settings, ...JSON.parse(fs.readFileSync(settingsPath(), 'utf-8')) }; } catch (_) {}
 }
@@ -187,7 +198,13 @@ ipcMain.handle('app:version', () => app.getVersion());
 
 // --- Settings + feedback IPC --------------------------------------------------------
 ipcMain.handle('settings:get', () => settings);
-ipcMain.handle('settings:set', (_e, patch) => { settings = { ...settings, ...(patch || {}) }; saveSettings(); return settings; });
+ipcMain.handle('settings:set', (_e, patch) => {
+  settings = { ...settings, ...(patch || {}) };
+  saveSettings();
+  if (patch && 'openAtLogin' in patch) applyLoginItem();
+  return settings;
+});
+ipcMain.on('tray:battery', (_e, b) => { if (tray) { try { tray.setToolTip(trayTip(b)); } catch (_) {} } });
 ipcMain.handle('feedback:save', (_e, entry) => {
   try {
     const p = path.join(app.getPath('userData'), 'attune-feedback.txt');
@@ -212,7 +229,7 @@ if (!gotLock) {
     }
   });
 
-  app.whenReady().then(() => { loadSettings(); createWindow(); });
+  app.whenReady().then(() => { loadSettings(); applyLoginItem(); createWindow(); });
 
   app.on('before-quit', () => {
     app.isQuitting = true;
