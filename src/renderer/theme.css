@@ -321,6 +321,13 @@ select:hover { border-color: var(--muted); }
 }
 .swatches button.on .sw { box-shadow: inset 0 -4px 8px rgba(0,0,0,0.25), 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
 
+/* force-model picker */
+#dev-change { color: var(--muted); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+#dev-change:hover { color: var(--accent); }
+.model-picker .mp-row { display: flex; gap: 8px; align-items: center; }
+.model-picker select { flex: 1; }
+#dev-serial { color: var(--text); font-family: 'Mono', monospace; }
+
 /* collapsible cards (genre rules / artist overrides) */
 .card-head { cursor: pointer; display: flex; align-items: center; }
 .card-head .chev { margin-left: auto; transition: transform 0.2s; color: var(--muted-2); font-size: 13px; }

@@ -21,6 +21,7 @@ const FASTPAIR_UUID = 'df21fe2c-2515-4fdb-8886-f12c4d67927c';
 var SPPsocket = null;
 var sessionReader = null; // active read-loop reader, so disconnect() can cancel it
 var batteryTimer = null;  // periodic battery poll (keeps case % current)
+var currentSerial = '';   // raw serial of the connected buds (for model override)
 var modelBase = '';
 var firmwareVersion = '';
 
@@ -278,9 +279,23 @@ function readFirmwareFromData(hexstring) {
   return fw;
 }
 
+// User-saved "force model" overrides, keyed by the buds' serial number.
+function modelOverrideFor(serial) {
+  try {
+    const m = JSON.parse(localStorage.getItem('attune.modelOverrides') || '{}');
+    return (serial && m[serial]) || null;
+  } catch (_) { return null; }
+}
+
 // Map a raw serial string to a model entry (mirrors processSerial in ear-web).
+// A saved per-serial override always wins, so a misdetected device stays fixed.
 function resolveModel(serial) {
   if (serial === null || serial === undefined) return null;
+  currentSerial = serial;
+
+  const ovSku = modelOverrideFor(serial);
+  if (ovSku) { const ovModel = getModelFromSKU(ovSku); if (ovModel) return ovModel; }
+
   if (serial === '12345678901234567') return getModelFromSKU('01');
   const head = serial.substring(0, 2);
   let sku = '';

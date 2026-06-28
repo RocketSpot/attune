@@ -906,6 +906,56 @@ if ($('fb-repo-save')) $('fb-repo-save').addEventListener('click', async () => {
 });
 
 /* ------------------------------------------------------------------ *
+ * Force-model override — fix serial-based misdetection                *
+ * ------------------------------------------------------------------ */
+const FORCE_MODELS = [
+  { name: 'CMF Buds Pro 2', sku: '78' },
+  { name: 'CMF Buds', sku: '54' },
+  { name: 'CMF Buds Pro', sku: '30' },
+  { name: 'CMF Neckband Pro', sku: '48' },
+  { name: 'Nothing Ear', sku: '61' },
+  { name: 'Nothing Ear (a)', sku: '63' },
+  { name: 'Nothing Ear (2)', sku: '17' },
+  { name: 'Nothing Ear (1)', sku: '01' },
+  { name: 'Nothing Ear (stick)', sku: '14' },
+  { name: 'Nothing Ear (open)', sku: '11200005' }
+];
+const MODEL_OVERRIDE_PREF = 'attune.modelOverrides';
+function saveModelOverride(serial, sku) {
+  try {
+    const m = JSON.parse(localStorage.getItem(MODEL_OVERRIDE_PREF) || '{}');
+    m[serial] = sku;
+    localStorage.setItem(MODEL_OVERRIDE_PREF, JSON.stringify(m));
+  } catch (_) {}
+}
+if ($('model-select')) {
+  $('model-select').innerHTML = FORCE_MODELS.map((m) => `<option value="${m.sku}">${m.name}</option>`).join('');
+}
+if ($('dev-change')) $('dev-change').addEventListener('click', () => {
+  const picker = $('model-picker');
+  const showing = picker.style.display !== 'none';
+  picker.style.display = showing ? 'none' : '';
+  if (!showing) {
+    $('dev-serial').textContent = currentSerial || '(unknown)';
+    if (currentModel && $('model-select')) {
+      const match = FORCE_MODELS.find((m) => { const gm = getModelFromSKU(m.sku); return gm && gm.name === currentModel.name; });
+      if (match) $('model-select').value = match.sku;
+    }
+  }
+});
+if ($('model-apply')) $('model-apply').addEventListener('click', () => {
+  const sku = $('model-select').value;
+  const model = getModelFromSKU(sku);
+  if (!model) { toast('Unknown model'); return; }
+  if (currentSerial) saveModelOverride(currentSerial, sku);
+  modelBase = model.base;          // protocol.js global — drives per-model commands
+  onModelDetected(model, sku);     // updates name, art, colourways, capabilities
+  try { initDevice(); } catch (_) {} // re-read state with the correct model
+  $('model-picker').style.display = 'none';
+  toast('Set to ' + model.name + (currentSerial ? ' — remembered for these buds' : ''));
+});
+
+/* ------------------------------------------------------------------ *
  * Diagnostics from main process                                      *
  * ------------------------------------------------------------------ */
 if (window.cmf && window.cmf.onPortList) {
@@ -975,4 +1025,9 @@ if (new URLSearchParams(location.search).get('demo')) {
     const b = $(id); if (b) b.classList.add('open');
     const h = document.querySelector(`.card-head[data-toggle="${id}"]`); if (h) h.classList.add('open');
   });
+  // Show the force-model picker for preview.
+  currentSerial = 'SH24A2178K9QX';
+  $('dev-serial').textContent = currentSerial;
+  $('model-picker').style.display = '';
+  if ($('model-select')) $('model-select').value = '78';
 }

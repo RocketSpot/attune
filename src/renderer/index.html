@@ -51,9 +51,19 @@
         <div class="dev-header">
           <div class="dev-title">
             <h1 id="dev-name">CMF Buds Pro 2</h1>
-            <div class="meta"><span class="dot">●</span> <span id="dev-conn">Connected</span> · FW <span id="dev-fw">—</span></div>
+            <div class="meta"><span class="dot">●</span> <span id="dev-conn">Connected</span> · FW <span id="dev-fw">—</span> · <span id="dev-change">wrong model?</span></div>
           </div>
           <button id="btn-disconnect" class="btn-ghost">Disconnect</button>
+        </div>
+
+        <!-- Force-model picker (shown when detection is wrong) -->
+        <div class="card model-picker" id="model-picker" style="display:none;">
+          <h2>Force Model</h2>
+          <div class="hint-line">If your buds were detected wrong, pick the correct model — it's remembered for this device. <span id="dev-serial-line">Detected serial: <b id="dev-serial">—</b></span></div>
+          <div class="mp-row">
+            <select id="model-select"></select>
+            <button class="btn-line sm" id="model-apply">Apply</button>
+          </div>
         </div>
 
         <!-- Battery hero -->
